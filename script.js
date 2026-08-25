@@ -5,29 +5,6 @@ document.addEventListener('DOMContentLoaded', function() {
     loadTasks(); // Load tasks first
 
     const stopwatchToggle = document.getElementById('stopwatchToggle');
-    const stopwatch = document.getElementById('stopwatch');
-
-    // Ensure the elements are found
-    if (stopwatch && stopwatchToggle) {
-        stopwatch.classList.add('hidden'); // Hide by default
-
-        // Toggle stopwatch display
-        stopwatchToggle.addEventListener('click', function() {
-            console.log("Stopwatch toggle clicked"); // Check if this logs
-            stopwatch.classList.toggle('hidden'); // Toggle the hidden class
-
-            // Check if the stopwatch is hidden or visible
-            if (stopwatch.classList.contains('hidden')) {
-                console.log("Stopwatch is hidden");
-                stopwatch.style.display = 'none'; // Set display to none
-            } else {
-                console.log("Stopwatch is visible");
-                stopwatch.style.display = 'flex'; // Set display to flex
-            }
-        });
-    } else {
-        console.error("Stopwatch or toggle button not found.");
-    }
 
     // Stopwatch functionality
     let timer; // Variable to hold the timer
@@ -193,8 +170,24 @@ function loadTasks() {
         buttonContainer.appendChild(deleteButton);
 
         li.appendChild(textSpan);
+
+        // Labels were being saved (updateLocalStorage already records
+        // them) but never redrawn here, so they silently vanished on
+        // every reload -- the same class of bug as the missing tasks,
+        // just smaller.
+        if (task.labels && task.labels.length) {
+            task.labels.forEach(label => {
+                const labelElement = document.createElement('span');
+                labelElement.className = 'task-label';
+                labelElement.setAttribute('data-label', label.name);
+                labelElement.innerHTML = `${label.icon} ${label.name}`;
+                labelElement.style.backgroundColor = label.color;
+                li.appendChild(labelElement);
+            });
+        }
+
         li.appendChild(buttonContainer);
-        
+
         if (task.completed) {
             li.classList.add('completed');
             document.getElementById('completedTasks').appendChild(li);
@@ -595,29 +588,6 @@ function updateLocalStorage() {
         });
     });
     localStorage.setItem('tasks', JSON.stringify(tasks));
-}
-
-// Update loadTasks to include labels
-function loadTasks() {
-    let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
-    tasks.forEach(task => {
-        // ... existing task creation code ...
-
-        // Add labels if they exist
-        if (task.labels) {
-            task.labels.forEach(label => {
-                const labelElement = document.createElement('span');
-                labelElement.className = 'task-label';
-                labelElement.setAttribute('data-label', label.name);
-                labelElement.innerHTML = `${label.icon} ${label.name}`;
-                labelElement.style.backgroundColor = label.color;
-                li.insertBefore(labelElement, buttonContainer);
-            });
-        }
-
-        // ... rest of existing code ...
-    });
-    organizeTasks(); // Organize tasks after loading
 }
 
 // Function to organize tasks
