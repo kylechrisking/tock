@@ -3,45 +3,6 @@ const stopwatch = document.getElementById('stopwatch');
 // Load tasks from local storage when the page loads
 document.addEventListener('DOMContentLoaded', function() {
     loadTasks(); // Load tasks first
-
-    const stopwatchToggle = document.getElementById('stopwatchToggle');
-
-    // Stopwatch functionality
-    let timer; // Variable to hold the timer
-    let elapsedTime = 0; // Time in seconds
-
-    // Function to update the stopwatch display
-    function updateStopwatchDisplay() {
-        const display = document.getElementById('stopwatchDisplay');
-        const hours = Math.floor(elapsedTime / 3600);
-        const minutes = Math.floor((elapsedTime % 3600) / 60);
-        const seconds = elapsedTime % 60;
-        display.textContent = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-    }
-
-    // Start button functionality
-    document.getElementById('startStopwatch').addEventListener('click', function() {
-        if (!timer) { // Only start if not already running
-            timer = setInterval(function() {
-                elapsedTime++;
-                updateStopwatchDisplay();
-            }, 1000);
-        }
-    });
-
-    // Stop button functionality
-    document.getElementById('stopStopwatch').addEventListener('click', function() {
-        clearInterval(timer);
-        timer = null; // Reset timer variable
-    });
-
-    // Reset button functionality
-    document.getElementById('resetStopwatch').addEventListener('click', function() {
-        clearInterval(timer);
-        timer = null; // Reset timer variable
-        elapsedTime = 0; // Reset elapsed time
-        updateStopwatchDisplay(); // Update display to show 00:00:00
-    });
 });
 
 // Add event listener for the "Add Task" button
@@ -564,30 +525,6 @@ function toggleLabel(taskElement, label) {
     
     updateLocalStorage();
     organizeTasks(); // Call organizeTasks immediately after updating the label
-}
-
-// Update the updateLocalStorage function to include labels
-function updateLocalStorage() {
-    const tasks = [];
-    const taskItems = document.querySelectorAll('#taskList li, #completedTasks li');
-    taskItems.forEach(item => {
-        const taskText = item.querySelector('.task-text').textContent;
-        const completed = item.classList.contains('completed');
-        const dueDate = item.querySelector('.due-date')?.textContent.split('Due: ')[1] || null;
-        const labels = Array.from(item.querySelectorAll('.task-label')).map(label => ({
-            name: label.getAttribute('data-label'),
-            color: label.style.backgroundColor,
-            icon: label.innerHTML.split(' ')[0]
-        }));
-        
-        tasks.push({ 
-            text: taskText, 
-            completed: completed,
-            dueDate: dueDate,
-            labels: labels
-        });
-    });
-    localStorage.setItem('tasks', JSON.stringify(tasks));
 }
 
 // Function to organize tasks
