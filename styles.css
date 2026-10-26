@@ -327,6 +327,16 @@ h2:last-of-type {
     margin-top: 4px;
 }
 
+.due-date.overdue {
+    color: #d63031;
+    font-weight: 600;
+}
+
+.due-date.today {
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
 /* Date picker styling */
 .date-picker {
     padding: 8px;

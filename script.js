@@ -82,11 +82,15 @@ function addTask(taskText) {
 function loadTasks() {
     const storedTasks = JSON.parse(localStorage.getItem('tasks')) || [];
     const tasks = Array.isArray(storedTasks) ? storedTasks : [];
-    const needsIdMigration = tasks.some(task => !task || !task.id);
+    const needsIdMigration = tasks.some(task => !task || !task.id ||
+        (task.dueDate && !/^\d{4}-\d{2}-\d{2}$/.test(task.dueDate)));
     tasks.forEach(stored => {
         const task = normalizeTask(stored);
         const li = document.createElement('li');
         li.dataset.taskId = task.id;
+        if (task.dueDate) {
+            li.dataset.dueDate = task.dueDate;
+        }
         
         // Create span for task text
         const textSpan = document.createElement('span');
@@ -129,6 +133,12 @@ function loadTasks() {
         buttonContainer.appendChild(deleteButton);
 
         li.appendChild(textSpan);
+
+        // Due dates were saved but never redrawn after a reload; the
+        // span also carries the plain-language label and overdue state
+        if (task.dueDate) {
+            li.appendChild(buildDueDateSpan(task.dueDate));
+        }
 
         // Labels were being saved (saveTasks already records
         // them) but never redrawn here, so they silently vanished on
@@ -200,7 +210,7 @@ function saveTasks() {
     taskItems.forEach(item => {
         const taskText = item.querySelector('.task-text').textContent;
         const completed = item.classList.contains('completed');
-        const dueDate = item.querySelector('.due-date')?.textContent.split('Due: ')[1] || null;
+        const dueDate = item.dataset.dueDate || null;
         const labels = Array.from(item.querySelectorAll('.task-label')).map(label => ({
             name: label.getAttribute('data-label'),
             color: label.style.backgroundColor,
@@ -232,9 +242,56 @@ function normalizeTask(stored) {
         id: (stored && stored.id) || createTaskId(),
         text: typeof (stored && stored.text) === 'string' ? stored.text : '',
         completed: Boolean(stored && stored.completed),
-        dueDate: (stored && stored.dueDate) || null,
+        dueDate: toIsoDate(stored && stored.dueDate),
         labels: Array.isArray(stored && stored.labels) ? stored.labels : []
     };
+}
+
+// Accepts ISO yyyy-mm-dd or the legacy "Mon D, YYYY" text; dates are
+// stored in ISO so they parse as local time, never UTC (the old code
+// parsed "2026-11-01" as UTC midnight and rendered it as Oct 31)
+function toIsoDate(value) {
+    if (!value) return null;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+    const parsed = new Date(value);
+    if (isNaN(parsed.getTime())) return null;
+    const month = String(parsed.getMonth() + 1).padStart(2, '0');
+    const day = String(parsed.getDate()).padStart(2, '0');
+    return `${parsed.getFullYear()}-${month}-${day}`;
+}
+
+function isoDateToday(offsetDays = 0) {
+    const date = new Date();
+    date.setDate(date.getDate() + offsetDays);
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${date.getFullYear()}-${month}-${day}`;
+}
+
+function isOverdue(iso) {
+    return Boolean(iso) && iso < isoDateToday();
+}
+
+// Plain-language due date: Today, Tomorrow, or a short calendar date
+function humanDueDate(iso) {
+    if (iso === isoDateToday()) return 'Today';
+    if (iso === isoDateToday(1)) return 'Tomorrow';
+    const [year, month, day] = iso.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    const label = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return year !== new Date().getFullYear() ? `${label}, ${year}` : label;
+}
+
+function buildDueDateSpan(iso) {
+    const span = document.createElement('span');
+    span.className = 'due-date';
+    if (isOverdue(iso)) {
+        span.classList.add('overdue');
+    } else if (iso === isoDateToday()) {
+        span.classList.add('today');
+    }
+    span.textContent = `Due ${humanDueDate(iso)}`;
+    return span;
 }
 
 // Context Menu Implementation
@@ -504,23 +561,16 @@ function saveEdit(input, taskTextSpan, originalText) {
     }
 }
 
-// Function to set due date
+// Function to set due date. The ISO value lives on the li so the save
+// path never has to parse rendered text back into data.
 function setDueDate(taskElement, dateString) {
-    let dueDateSpan = taskElement.querySelector('.due-date');
-    if (!dueDateSpan) {
-        dueDateSpan = document.createElement('span');
-        dueDateSpan.className = 'due-date';
-        taskElement.appendChild(dueDateSpan);
+    if (!dateString) return;
+    taskElement.dataset.dueDate = dateString;
+    const existing = taskElement.querySelector('.due-date');
+    if (existing) {
+        existing.remove();
     }
-    
-    const date = new Date(dateString);
-    const formattedDate = date.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric'
-    });
-    
-    dueDateSpan.textContent = `Due: ${formattedDate}`;
+    taskElement.insertBefore(buildDueDateSpan(dateString), taskElement.querySelector('.button-container'));
     saveTasks();
 }
 
@@ -633,44 +683,86 @@ function getLabelIcon(label) {
     return icons[label] || '📝';
 }
 
-// Hide the stopwatch by default
-document.addEventListener('DOMContentLoaded', function() {
-    stopwatch.classList.add('hidden'); // Ensure it's hidden on page load
-});
+// Stopwatch. State lives in localStorage, so the count survives a
+// reload, and a running timer keeps counting the time the page was
+// closed (focused-work sessions outlive accidental refreshes).
+let stopwatchState = loadStopwatchState();
+let stopwatchTimer = null;
 
-let timer; // Variable to hold the timer
-let elapsedTime = 0; // Time in seconds
+function loadStopwatchState() {
+    try {
+        const state = JSON.parse(localStorage.getItem('tockStopwatch'));
+        if (state && typeof state.elapsed === 'number') {
+            return { elapsed: state.elapsed, runningSince: state.runningSince || null };
+        }
+    } catch (error) {
+        // Corrupt state falls through to a fresh timer
+    }
+    return { elapsed: 0, runningSince: null };
+}
 
-// Function to update the stopwatch display
+function stopwatchSeconds() {
+    return stopwatchState.elapsed +
+        (stopwatchState.runningSince ? Math.floor((Date.now() - stopwatchState.runningSince) / 1000) : 0);
+}
+
+function saveStopwatchState() {
+    localStorage.setItem('tockStopwatch', JSON.stringify(stopwatchState));
+}
+
 function updateStopwatchDisplay() {
-    const display = document.getElementById('stopwatchDisplay');
-    const hours = Math.floor(elapsedTime / 3600);
-    const minutes = Math.floor((elapsedTime % 3600) / 60);
-    const seconds = elapsedTime % 60;
-    display.textContent = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    const total = stopwatchSeconds();
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    const seconds = total % 60;
+    document.getElementById('stopwatchDisplay').textContent =
+        `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+// Show Start while idle; show Stop and Reset while running
+function syncStopwatchButtons() {
+    const running = Boolean(stopwatchState.runningSince);
+    document.getElementById('startStopwatch').hidden = running;
+    document.getElementById('stopStopwatch').hidden = !running;
+    document.getElementById('resetStopwatch').hidden = !running && stopwatchState.elapsed === 0;
+}
+
+function startStopwatchTicker() {
+    clearInterval(stopwatchTimer);
+    stopwatchTimer = setInterval(updateStopwatchDisplay, 1000);
 }
 
 // Start button functionality
 document.getElementById('startStopwatch').addEventListener('click', function() {
-    if (!timer) { // Only start if not already running
-        timer = setInterval(function() {
-            elapsedTime++;
-            updateStopwatchDisplay();
-        }, 1000);
-    }
+    if (stopwatchState.runningSince) return;
+    stopwatchState.runningSince = Date.now();
+    saveStopwatchState();
+    syncStopwatchButtons();
+    startStopwatchTicker();
 });
 
 // Stop button functionality
 document.getElementById('stopStopwatch').addEventListener('click', function() {
-    clearInterval(timer);
-    timer = null; // Reset timer variable
+    if (!stopwatchState.runningSince) return;
+    stopwatchState.elapsed = stopwatchSeconds();
+    stopwatchState.runningSince = null;
+    saveStopwatchState();
+    syncStopwatchButtons();
+    clearInterval(stopwatchTimer);
 });
 
 // Reset button functionality
 document.getElementById('resetStopwatch').addEventListener('click', function() {
-    clearInterval(timer);
-    timer = null; // Reset timer variable
-    elapsedTime = 0; // Reset elapsed time
-    updateStopwatchDisplay(); // Update display to show 00:00:00
+    stopwatchState = { elapsed: 0, runningSince: null };
+    saveStopwatchState();
+    syncStopwatchButtons();
+    clearInterval(stopwatchTimer);
+    updateStopwatchDisplay();
 });
+
+updateStopwatchDisplay();
+syncStopwatchButtons();
+if (stopwatchState.runningSince) {
+    startStopwatchTicker();
+}
 
