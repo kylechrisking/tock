@@ -1,4 +1,3 @@
-# Tock
 <h1>Tock: Conquer Your To-Do List with Ease</h1>
 
 Tock is a user-friendly web application designed to help you stay organized and productive. It empowers you to manage your tasks effectively with features that cater to your workflow.
