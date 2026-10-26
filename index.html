@@ -3,53 +3,59 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Tock is a free browser to-do list with labels, due dates, search, an undo button and a stopwatch. No account, nothing leaves your device.">
     <title>Tock - To-Do List</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✅</text></svg>">
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
     <div class="container">
         <h1>Tock</h1>
         <div class="top-controls">
-            <button id="darkModeToggle" class="theme-toggle">
-                <i class="fas fa-moon"></i>
-            </button>
-            <button id="stopwatchToggle" class="theme-toggle">
-                <i class="fas fa-clock"></i>
-            </button>
+            <div class="control-cluster">
+                <button id="darkModeToggle" class="theme-toggle" aria-label="Switch to dark mode">🌙</button>
+                <button id="stopwatchToggle" class="theme-toggle" aria-label="Toggle stopwatch">⏱️</button>
+            </div>
+            <div class="control-cluster">
+                <button id="sortToggle" class="theme-toggle" aria-label="Sort by due date" aria-pressed="false" title="Sort by due date">🗓️</button>
+                <button id="exportButton" class="theme-toggle" aria-label="Export tasks as JSON" title="Export tasks">📤</button>
+                <button id="importButton" class="theme-toggle" aria-label="Import tasks from JSON" title="Import tasks">📥</button>
+                <input type="file" id="importInput" accept=".json,application/json" hidden>
+            </div>
         </div>
         <div id="stopwatch" class="hidden">
             <span id="stopwatchDisplay">00:00:00</span>
-            <button id="startStopwatch">Start</button>
-            <button id="stopStopwatch" class="hidden">Stop</button>
-            <button id="resetStopwatch" class="hidden">Reset</button>
+            <div class="control-cluster">
+                <button id="startStopwatch">Start</button>
+                <button id="stopStopwatch" hidden>Stop</button>
+                <button id="resetStopwatch" hidden>Reset</button>
+            </div>
         </div>
         <div class="input-group">
-            <input type="text" id="taskInput" placeholder="Add a new task...">
+            <input type="text" id="taskInput" placeholder="Add a new task..." aria-label="New task">
             <button id="addTaskButton">Add Task</button>
         </div>
+        <div class="search-container">
+            <input type="text" id="searchInput" placeholder="Search tasks..." aria-label="Search tasks">
+            <span class="search-icon" aria-hidden="true">🔍</span>
+        </div>
+        <p id="statsBar" class="stats-bar" hidden></p>
         <h2>Active Tasks</h2>
         <ul id="taskList"></ul>
+        <p id="taskListEmpty" class="empty-state" hidden></p>
         <h2>Completed Tasks</h2>
         <ul id="completedTasks"></ul>
+        <p id="completedTasksEmpty" class="empty-state" hidden></p>
     </div>
     <div class="context-menu">
-        <div class="context-menu-item">
-            <i class="fas fa-edit"></i>
-            Edit Task
-        </div>
-        <div class="context-menu-item">
-            <i class="fas fa-clock"></i>
-            Set Due Date
-        </div>
-        <div class="context-menu-item">
-            <i class="fas fa-tag"></i>
-            Add Label
-        </div>
-        <div class="context-menu-item">
-            <i class="fas fa-trash-alt"></i>
-            Delete Task
-        </div>
+        <div class="context-menu-item" data-action="edit"><span class="menu-icon">✏️</span> Edit Task</div>
+        <div class="context-menu-item" data-action="due-date"><span class="menu-icon">📅</span> Set Due Date</div>
+        <div class="context-menu-item" data-action="add-label"><span class="menu-icon">🏷️</span> Add Label</div>
+        <div class="context-menu-item" data-action="delete"><span class="menu-icon">🗑️</span> Delete Task</div>
+    </div>
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden>
+        <span id="toastMessage"></span>
+        <button id="toastUndo" type="button">Undo</button>
     </div>
     <script src="script.js"></script>
 </body>

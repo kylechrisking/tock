@@ -1,232 +1,14 @@
 const stopwatch = document.getElementById('stopwatch');
+const contextMenu = document.querySelector('.context-menu');
 
 // Load tasks from local storage when the page loads
 document.addEventListener('DOMContentLoaded', function() {
     loadTasks(); // Load tasks first
+    syncSortToggle();
+    updateStats();
 });
 
-// Add event listener for the "Add Task" button
-document.getElementById('addTaskButton').addEventListener('click', function() {
-    const taskInput = document.getElementById('taskInput');
-    const taskText = taskInput.value;
-
-    if (taskText) {
-        addTask(taskText);
-        taskInput.value = ''; // Clear input field
-    }
-});
-
-// Function to add a task
-// Update the addTask function
-function addTask(taskText) {
-    const li = document.createElement('li');
-    li.dataset.taskId = createTaskId();
-    li.classList.add('task-enter');
-    
-    // Create span for task text
-    const textSpan = document.createElement('span');
-    textSpan.textContent = taskText;
-    textSpan.className = 'task-text';
-
-    // Create a checkmark for task completion
-    const checkmark = document.createElement('span');
-    checkmark.textContent = '✔️';
-    checkmark.className = 'checkmark';
-    checkmark.onclick = function() {
-        li.classList.toggle('completed');
-        saveTasks();
-        moveTask(li);
-    };
-
-    // Create an undo button
-    const undoButton = document.createElement('span');
-    undoButton.textContent = '↩️';
-    undoButton.className = 'undo-button';
-    undoButton.onclick = function() {
-        li.classList.remove('completed');
-        saveTasks();
-        moveTask(li);
-    };
-
-    // Create a delete button
-    const deleteButton = document.createElement('span');
-    deleteButton.textContent = 'X';
-    deleteButton.className = 'delete-button';
-    deleteButton.onclick = function() {
-        deleteTask(li);
-    };
-
-    // Create a container for the buttons
-    const buttonContainer = document.createElement('div');
-    buttonContainer.className = 'button-container';
-    buttonContainer.appendChild(undoButton);
-    buttonContainer.appendChild(checkmark);
-    buttonContainer.appendChild(deleteButton);
-
-    li.appendChild(textSpan);
-    li.appendChild(buttonContainer);
-    
-    // Add to list and organize immediately
-    document.getElementById('taskList').appendChild(li);
-    organizeTasks();
-    
-    // Handle animation cleanup only
-    setTimeout(() => {
-        li.classList.remove('task-enter');
-    }, 300);
-    
-    saveTasks();
-}
-
-// Function to load tasks from local storage
-function loadTasks() {
-    const storedTasks = JSON.parse(localStorage.getItem('tasks')) || [];
-    const tasks = Array.isArray(storedTasks) ? storedTasks : [];
-    const needsIdMigration = tasks.some(task => !task || !task.id ||
-        (task.dueDate && !/^\d{4}-\d{2}-\d{2}$/.test(task.dueDate)));
-    tasks.forEach(stored => {
-        const task = normalizeTask(stored);
-        const li = document.createElement('li');
-        li.dataset.taskId = task.id;
-        if (task.dueDate) {
-            li.dataset.dueDate = task.dueDate;
-        }
-        
-        // Create span for task text
-        const textSpan = document.createElement('span');
-        textSpan.textContent = task.text;
-        textSpan.className = 'task-text';
-
-        // Create a checkmark for task completion
-        const checkmark = document.createElement('span');
-        checkmark.textContent = '✔️';
-        checkmark.className = 'checkmark';
-        checkmark.onclick = function() {
-            li.classList.toggle('completed');
-            saveTasks();
-            moveTask(li);
-        };
-
-        // Create an undo button
-        const undoButton = document.createElement('span');
-        undoButton.textContent = '↩️';  // Unicode undo arrow
-        undoButton.className = 'undo-button';
-        undoButton.onclick = function() {
-            li.classList.remove('completed');
-            saveTasks();
-            moveTask(li);
-        };
-
-        // Create a delete button as an "X"
-        const deleteButton = document.createElement('span');
-        deleteButton.textContent = 'X';
-        deleteButton.className = 'delete-button';
-        deleteButton.onclick = function() {
-            deleteTask(li);
-        };
-
-        // Create a container for the buttons
-        const buttonContainer = document.createElement('div');
-        buttonContainer.className = 'button-container';
-        buttonContainer.appendChild(undoButton);
-        buttonContainer.appendChild(checkmark);
-        buttonContainer.appendChild(deleteButton);
-
-        li.appendChild(textSpan);
-
-        // Due dates were saved but never redrawn after a reload; the
-        // span also carries the plain-language label and overdue state
-        if (task.dueDate) {
-            li.appendChild(buildDueDateSpan(task.dueDate));
-        }
-
-        // Labels were being saved (saveTasks already records
-        // them) but never redrawn here, so they silently vanished on
-        // every reload -- the same class of bug as the missing tasks,
-        // just smaller.
-        if (task.labels && task.labels.length) {
-            task.labels.forEach(label => {
-                const labelElement = document.createElement('span');
-                labelElement.className = 'task-label';
-                labelElement.setAttribute('data-label', label.name);
-                labelElement.textContent = `${label.icon} ${label.name}`;
-                labelElement.style.backgroundColor = label.color;
-                li.appendChild(labelElement);
-            });
-        }
-
-        li.appendChild(buttonContainer);
-
-        if (task.completed) {
-            li.classList.add('completed');
-            document.getElementById('completedTasks').appendChild(li);
-        } else {
-            document.getElementById('taskList').appendChild(li);
-        }
-    });
-    // Persist ids for tasks stored before ids existed
-    if (needsIdMigration) {
-        saveTasks();
-    }
-    organizeTasks(); // Organize tasks after loading
-}
-
-// Function to move task to completed section
-function moveTask(taskElement) {
-    taskElement.classList.add('task-exit');
-    
-    setTimeout(() => {
-        if (taskElement.classList.contains('completed')) {
-            document.getElementById('completedTasks').appendChild(taskElement);
-        } else {
-            document.getElementById('taskList').appendChild(taskElement);
-            organizeTasks(); // Only reorganize if task is moved back to active tasks
-        }
-        
-        taskElement.classList.remove('task-exit');
-        taskElement.classList.add('task-enter');
-        
-        setTimeout(() => {
-            taskElement.classList.remove('task-enter');
-        }, 300);
-    }, 300);
-}
-
-// Function to delete a task
-function deleteTask(taskElement) {
-    taskElement.classList.add('task-exit');
-    
-    setTimeout(() => {
-        taskElement.remove();
-        saveTasks();
-        organizeTasks();
-    }, 300);
-}
-
-// The single writer for persisted tasks: rebuild the list from the DOM and save it
-function saveTasks() {
-    const tasks = [];
-    const taskItems = document.querySelectorAll('#taskList li, #completedTasks li');
-    taskItems.forEach(item => {
-        const taskText = item.querySelector('.task-text').textContent;
-        const completed = item.classList.contains('completed');
-        const dueDate = item.dataset.dueDate || null;
-        const labels = Array.from(item.querySelectorAll('.task-label')).map(label => ({
-            name: label.getAttribute('data-label'),
-            color: label.style.backgroundColor,
-            icon: getLabelIcon(label.getAttribute('data-label'))
-        }));
-
-        tasks.push({
-            id: item.dataset.taskId || createTaskId(),
-            text: taskText,
-            completed: completed,
-            dueDate: dueDate,
-            labels: labels
-        });
-    });
-    localStorage.setItem('tasks', JSON.stringify(tasks));
-}
+// ---------- persistence ----------
 
 // Give every task a stable identity so identical texts stay separate tasks
 function createTaskId() {
@@ -243,7 +25,8 @@ function normalizeTask(stored) {
         text: typeof (stored && stored.text) === 'string' ? stored.text : '',
         completed: Boolean(stored && stored.completed),
         dueDate: toIsoDate(stored && stored.dueDate),
-        labels: Array.isArray(stored && stored.labels) ? stored.labels : []
+        labels: Array.isArray(stored && stored.labels) ? stored.labels : [],
+        createdAt: Number(stored && stored.createdAt) || Date.now()
     };
 }
 
@@ -294,33 +77,542 @@ function buildDueDateSpan(iso) {
     return span;
 }
 
-// Context Menu Implementation
+// The single writer for persisted tasks: rebuild the list from the DOM and save it
+function saveTasks() {
+    const tasks = [];
+    const taskItems = document.querySelectorAll('#taskList li, #completedTasks li');
+    taskItems.forEach(item => {
+        const labels = Array.from(item.querySelectorAll('.task-label')).map(label => ({
+            name: label.getAttribute('data-label'),
+            color: label.style.backgroundColor,
+            icon: getLabelIcon(label.getAttribute('data-label'))
+        }));
+
+        tasks.push({
+            id: item.dataset.taskId || createTaskId(),
+            text: item.querySelector('.task-text').textContent,
+            completed: item.classList.contains('completed'),
+            dueDate: item.dataset.dueDate || null,
+            labels: labels,
+            createdAt: Number(item.dataset.createdAt) || 0
+        });
+    });
+    localStorage.setItem('tasks', JSON.stringify(tasks));
+    updateStats();
+}
+
+function loadTasks() {
+    const storedTasks = JSON.parse(localStorage.getItem('tasks')) || [];
+    const tasks = Array.isArray(storedTasks) ? storedTasks : [];
+    const needsMigration = tasks.some(task => !task || !task.id ||
+        (task.dueDate && !/^\d{4}-\d{2}-\d{2}$/.test(task.dueDate)));
+    tasks.forEach(stored => {
+        const task = normalizeTask(stored);
+        const li = buildTaskElement(task);
+        if (task.completed) {
+            document.getElementById('completedTasks').appendChild(li);
+        } else {
+            document.getElementById('taskList').appendChild(li);
+        }
+    });
+    // Persist ids and ISO dates for tasks stored before they existed
+    if (needsMigration) {
+        saveTasks();
+    }
+    organizeTasks(); // Organize tasks after loading
+}
+
+// ---------- rendering ----------
+
+// One builder for task rows, shared by addTask and loadTasks so the two
+// paths can never drift apart again
+function buildTaskElement(task) {
+    const li = document.createElement('li');
+    li.dataset.taskId = task.id;
+    li.dataset.createdAt = task.createdAt || 0;
+    if (task.dueDate) {
+        li.dataset.dueDate = task.dueDate;
+    }
+
+    // Create span for task text
+    const textSpan = document.createElement('span');
+    textSpan.textContent = task.text;
+    textSpan.className = 'task-text';
+
+    // Create a checkmark for task completion
+    const checkmark = document.createElement('button');
+    checkmark.type = 'button';
+    checkmark.className = 'checkmark';
+    checkmark.setAttribute('aria-label', 'Mark task complete');
+    checkmark.textContent = '✔️';
+    checkmark.onclick = function() {
+        li.classList.add('completed');
+        recordCompletion(1);
+        saveTasks();
+        moveTask(li);
+    };
+
+    // Create an undo button
+    const undoButton = document.createElement('button');
+    undoButton.type = 'button';
+    undoButton.className = 'undo-button';
+    undoButton.setAttribute('aria-label', 'Mark task not done');
+    undoButton.textContent = '↩️';
+    undoButton.onclick = function() {
+        li.classList.remove('completed');
+        recordCompletion(-1);
+        saveTasks();
+        moveTask(li);
+    };
+
+    // Create a delete button
+    const deleteButton = document.createElement('button');
+    deleteButton.type = 'button';
+    deleteButton.className = 'delete-button';
+    deleteButton.setAttribute('aria-label', 'Delete task');
+    deleteButton.textContent = '✖';
+    deleteButton.onclick = function() {
+        deleteTask(li);
+    };
+
+    // Create a container for the buttons
+    const buttonContainer = document.createElement('div');
+    buttonContainer.className = 'button-container';
+    buttonContainer.appendChild(undoButton);
+    buttonContainer.appendChild(checkmark);
+    buttonContainer.appendChild(deleteButton);
+
+    li.appendChild(textSpan);
+    if (task.dueDate) {
+        li.appendChild(buildDueDateSpan(task.dueDate));
+    }
+    (task.labels || []).forEach(label => {
+        li.appendChild(buildLabelSpan(label));
+    });
+    li.appendChild(buttonContainer);
+    // Completed tasks reload into the Completed list, but they also need
+    // the class back -- without it the next save would record them as
+    // open again (the save path reads state from the DOM)
+    if (task.completed) {
+        li.classList.add('completed');
+    }
+    return li;
+}
+
+function buildLabelSpan(label) {
+    const span = document.createElement('span');
+    span.className = 'task-label';
+    span.setAttribute('data-label', label.name);
+    span.textContent = `${label.icon} ${label.name}`;
+    span.style.backgroundColor = label.color;
+    return span;
+}
+
+// Add event listener for the "Add Task" button
+document.getElementById('addTaskButton').addEventListener('click', function() {
+    const taskInput = document.getElementById('taskInput');
+    addTask(taskInput.value);
+    taskInput.value = ''; // Clear input field
+});
+
+// Enter adds a task without reaching for the mouse
+document.getElementById('taskInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+        addTask(this.value);
+        this.value = '';
+    }
+});
+
+// "/" jumps to search from anywhere outside a text field
+document.addEventListener('keydown', function(e) {
+    const active = document.activeElement;
+    const typing = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA');
+    if (e.key === '/' && !typing) {
+        e.preventDefault();
+        document.getElementById('searchInput').focus();
+    }
+});
+
+// Function to add a task
+function addTask(taskText) {
+    const trimmed = taskText.trim();
+    if (!trimmed) return;
+
+    const li = buildTaskElement({
+        id: createTaskId(),
+        text: trimmed,
+        completed: false,
+        dueDate: null,
+        labels: [],
+        createdAt: Date.now()
+    });
+    li.classList.add('task-enter');
+
+    // Add to list and organize immediately
+    document.getElementById('taskList').appendChild(li);
+    organizeTasks();
+
+    // Handle animation cleanup only
+    setTimeout(() => {
+        li.classList.remove('task-enter');
+    }, 300);
+
+    saveTasks();
+}
+
+// Function to move task to completed section
+function moveTask(taskElement) {
+    taskElement.classList.add('task-exit');
+
+    setTimeout(() => {
+        if (taskElement.classList.contains('completed')) {
+            document.getElementById('completedTasks').appendChild(taskElement);
+        } else {
+            document.getElementById('taskList').appendChild(taskElement);
+            organizeTasks(); // Only reorganize if task is moved back to active tasks
+        }
+
+        taskElement.classList.remove('task-exit');
+        taskElement.classList.add('task-enter');
+
+        setTimeout(() => {
+            taskElement.classList.remove('task-enter');
+        }, 300);
+    }, 300);
+}
+
+// ---------- deleting with a way back ----------
+
+let pendingUndo = null;
+let undoTimer = null;
+
+function deleteTask(taskElement) {
+    taskElement.classList.add('task-exit');
+
+    setTimeout(() => {
+        const parent = taskElement.classList.contains('completed')
+            ? document.getElementById('completedTasks')
+            : document.getElementById('taskList');
+        pendingUndo = { element: taskElement, parent: parent };
+        taskElement.remove();
+        saveTasks();
+        organizeTasks();
+        showToast('Task deleted', undoDelete);
+    }, 300);
+}
+
+function undoDelete() {
+    if (!pendingUndo) return;
+    const undo = pendingUndo;
+    pendingUndo = null;
+    undo.element.classList.remove('task-exit');
+    undo.element.classList.add('task-enter');
+    undo.parent.appendChild(undo.element);
+    organizeTasks();
+    setTimeout(() => {
+        undo.element.classList.remove('task-enter');
+    }, 300);
+    hideToast();
+    saveTasks();
+}
+
+function showToast(message, onUndo) {
+    const toast = document.getElementById('toast');
+    document.getElementById('toastMessage').textContent = message;
+    document.getElementById('toastUndo').onclick = function() {
+        hideToast();
+        if (onUndo) onUndo();
+    };
+    toast.hidden = false;
+    clearTimeout(undoTimer);
+    undoTimer = setTimeout(hideToast, 6000);
+}
+
+function hideToast() {
+    clearTimeout(undoTimer);
+    document.getElementById('toast').hidden = true;
+}
+
+// ---------- search ----------
+
+// Filter both lists while typing; group headers with no visible tasks hide too
+function applySearchFilter(query) {
+    document.querySelectorAll('#taskList li, #completedTasks li').forEach(li => {
+        const text = li.querySelector('.task-text').textContent.toLowerCase();
+        li.classList.toggle('search-hidden', Boolean(query) && !text.includes(query));
+    });
+    document.querySelectorAll('#taskList .task-group-header').forEach(header => {
+        let visible = 0;
+        let node = header.nextElementSibling;
+        while (node && node.tagName === 'LI') {
+            if (!node.classList.contains('search-hidden')) visible++;
+            node = node.nextElementSibling;
+        }
+        header.classList.toggle('search-hidden', Boolean(query) && visible === 0);
+    });
+    document.querySelectorAll('.task-separator').forEach(separator => {
+        separator.classList.toggle('search-hidden', Boolean(query));
+    });
+    refreshEmptyStates();
+}
+
+function refreshEmptyStates() {
+    const query = document.getElementById('searchInput').value.trim().toLowerCase();
+    syncEmptyState('taskList', 'taskListEmpty',
+        query ? 'No active tasks match your search.' : 'Nothing here yet — add a task above.');
+    syncEmptyState('completedTasks', 'completedTasksEmpty',
+        query ? 'No completed tasks match your search.' : 'Completed tasks will land here.');
+}
+
+function syncEmptyState(listId, emptyId, message) {
+    const list = document.getElementById(listId);
+    const empty = document.getElementById(emptyId);
+    if (!list || !empty) return;
+    const visible = Array.from(list.querySelectorAll('li:not(.search-hidden)')).length;
+    empty.textContent = message;
+    empty.hidden = visible > 0;
+}
+
+// ---------- stats: open tasks, daily progress, streak ----------
+
+function loadStats() {
+    try {
+        const stats = JSON.parse(localStorage.getItem('tockStats'));
+        if (stats && stats.completions && typeof stats.completions === 'object') return stats;
+    } catch (error) {
+        // Corrupt stats fall through to a fresh record
+    }
+    return { completions: {} };
+}
+
+function recordCompletion(delta) {
+    const stats = loadStats();
+    const today = isoDateToday();
+    stats.completions[today] = Math.max(0, (stats.completions[today] || 0) + delta);
+    localStorage.setItem('tockStats', JSON.stringify(stats));
+}
+
+// Consecutive days with at least one completion, ending today (or
+// yesterday, so a morning check does not read as "streak broken")
+function completionStreak(stats) {
+    let streak = 0;
+    let day = stats.completions[isoDateToday()] ? 0 : 1;
+    while (stats.completions[isoDateToday(-day)]) {
+        streak++;
+        day++;
+    }
+    return streak;
+}
+
+function updateStats() {
+    const statsBar = document.getElementById('statsBar');
+    if (!statsBar) return;
+    // Rows keep their completed class for 300 ms before moving lists,
+    // so count by class, not by which list they sit in right now
+    const open = document.querySelectorAll('#taskList li:not(.search-hidden):not(.completed)').length;
+    const stats = loadStats();
+    const doneToday = stats.completions[isoDateToday()] || 0;
+    const streak = completionStreak(stats);
+
+    const parts = [open === 1 ? '1 task left' : `${open} tasks left`];
+    if (doneToday > 0) parts.push(doneToday === 1 ? '1 done today' : `${doneToday} done today`);
+    if (streak >= 2) parts.push(`🔥 ${streak}-day streak`);
+
+    statsBar.textContent = parts.join(' · ');
+    statsBar.hidden = open === 0 && doneToday === 0;
+}
+
+// ---------- backup: export and import ----------
+
+function exportTasks() {
+    const payload = {
+        app: 'tock',
+        version: 2,
+        exportedAt: new Date().toISOString(),
+        tasks: JSON.parse(localStorage.getItem('tasks')) || [],
+        stats: loadStats()
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `tock-backup-${isoDateToday()}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+}
+
+function importTasks() {
+    const fileInput = document.getElementById('importInput');
+    const file = fileInput.files[0];
+    fileInput.value = '';
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function() {
+        let data;
+        try {
+            data = JSON.parse(reader.result);
+        } catch (error) {
+            alert('That file is not valid JSON.');
+            return;
+        }
+        const tasks = Array.isArray(data) ? data : (data && Array.isArray(data.tasks) ? data.tasks : null);
+        if (!tasks) {
+            alert('No tasks found in that file.');
+            return;
+        }
+        if (!confirm(`Replace the current tasks with ${tasks.length} imported task(s)?`)) return;
+        localStorage.setItem('tasks', JSON.stringify(tasks));
+        window.location.reload();
+    };
+    reader.readAsText(file);
+}
+
+document.getElementById('exportButton').addEventListener('click', exportTasks);
+document.getElementById('importButton').addEventListener('click', function() {
+    document.getElementById('importInput').click();
+});
+document.getElementById('importInput').addEventListener('change', importTasks);
+
+// ---------- sorting ----------
+
+function syncSortToggle() {
+    const sortToggle = document.getElementById('sortToggle');
+    if (!sortToggle) return;
+    const active = localStorage.getItem('tockSort') === 'due';
+    sortToggle.setAttribute('aria-pressed', String(active));
+    sortToggle.classList.toggle('active', active);
+    sortToggle.title = active ? 'Sorting by due date — click for manual order' : 'Sort by due date';
+}
+
+document.getElementById('sortToggle').addEventListener('click', function() {
+    const next = localStorage.getItem('tockSort') === 'due' ? 'manual' : 'due';
+    localStorage.setItem('tockSort', next);
+    syncSortToggle();
+    organizeTasks();
+});
+
+// Function to organize tasks
+function organizeTasks() {
+    const taskList = document.getElementById('taskList');
+
+    // Store all tasks before clearing
+    const tasks = Array.from(taskList.getElementsByTagName('li'));
+
+    // Clear the task list
+    taskList.innerHTML = '';
+
+    const sortByDue = localStorage.getItem('tockSort') === 'due';
+    const byDueDate = (a, b) => {
+        const dueA = a.dataset.dueDate || '9999-12-31';
+        const dueB = b.dataset.dueDate || '9999-12-31';
+        if (dueA !== dueB) return dueA < dueB ? -1 : 1;
+        return (Number(a.dataset.createdAt) || 0) - (Number(b.dataset.createdAt) || 0);
+    };
+
+    // Separate labeled and unlabeled tasks
+    const unlabeledTasks = [];
+    const taskGroups = {
+        'Important': [],
+        'Work': [],
+        'Personal': [],
+        'Shopping': [],
+        'Health': [],
+        'Study': []
+    };
+
+    // Sort tasks into groups
+    tasks.forEach(task => {
+        if (!task.classList.contains('completed')) {
+            const labels = Array.from(task.querySelectorAll('.task-label'));
+            if (labels.length === 0) {
+                unlabeledTasks.push(task);
+            } else {
+                const primaryLabel = labels[0].getAttribute('data-label');
+                if (taskGroups.hasOwnProperty(primaryLabel)) {
+                    taskGroups[primaryLabel].push(task);
+                } else {
+                    unlabeledTasks.push(task);
+                }
+            }
+        }
+    });
+
+    if (sortByDue) {
+        unlabeledTasks.sort(byDueDate);
+        Object.values(taskGroups).forEach(group => group.sort(byDueDate));
+    }
+
+    // Add unlabeled tasks first
+    unlabeledTasks.forEach(task => {
+        taskList.appendChild(task);
+    });
+
+    // Add separator if there are both unlabeled and labeled tasks
+    const hasLabeledTasks = Object.values(taskGroups).some(group => group.length > 0);
+    if (unlabeledTasks.length > 0 && hasLabeledTasks) {
+        const separator = document.createElement('div');
+        separator.className = 'task-separator';
+        taskList.appendChild(separator);
+    }
+
+    // Add labeled tasks in groups
+    Object.entries(taskGroups).forEach(([label, groupTasks]) => {
+        if (groupTasks.length > 0) {
+            const groupHeader = document.createElement('div');
+            groupHeader.className = 'task-group-header';
+            const groupIcon = document.createElement('span');
+            groupIcon.className = 'group-icon';
+            groupIcon.textContent = getLabelIcon(label);
+            groupHeader.appendChild(groupIcon);
+            groupHeader.appendChild(document.createTextNode(label));
+            const taskCount = document.createElement('span');
+            taskCount.className = 'task-count';
+            taskCount.textContent = `(${groupTasks.length})`;
+            groupHeader.appendChild(taskCount);
+            taskList.appendChild(groupHeader);
+
+            groupTasks.forEach(task => {
+                taskList.appendChild(task);
+            });
+        }
+    });
+
+    refreshEmptyStates();
+}
+// Helper function to get label icon
+function getLabelIcon(label) {
+    const icons = {
+        'Important': '⚡',
+        'Work': '💼',
+        'Personal': '👤',
+        'Shopping': '🛒',
+        'Health': '❤️',
+        'Study': '📚',
+        'Unlabeled': '📝'
+    };
+    return icons[label] || '📝';
+}
+
+// ---------- context menu ----------
+
 document.addEventListener('DOMContentLoaded', function() {
-    const contextMenu = document.querySelector('.context-menu');
     let currentTask = null;
 
     // Function to update context menu based on task labels
     function updateContextMenu(task) {
         // Find or create the Remove Label menu item
         let removeLabelItem = contextMenu.querySelector('.context-menu-item.remove-label');
-        
+
         if (!removeLabelItem) {
             removeLabelItem = document.createElement('div');
             removeLabelItem.className = 'context-menu-item remove-label';
-            removeLabelItem.innerHTML = '<i class="fas fa-times"></i>Remove Labels'; // Using X icon
+            removeLabelItem.dataset.action = 'remove-labels';
+            removeLabelItem.textContent = '❌ Remove Labels';
             contextMenu.appendChild(removeLabelItem);
-
-            // Add click handler for remove labels
-            removeLabelItem.addEventListener('click', function() {
-                if (currentTask) {
-                    const labels = currentTask.querySelectorAll('.task-label');
-                    labels.forEach(label => label.remove());
-                    saveTasks();
-                    organizeTasks(); // Reorganize tasks after removing labels
-                }
-            });
         }
-        
+
         // Show/hide based on whether the task has labels
         const hasLabels = task.querySelectorAll('.task-label').length > 0;
         removeLabelItem.style.display = hasLabels ? 'flex' : 'none';
@@ -332,10 +624,10 @@ document.addEventListener('DOMContentLoaded', function() {
         if (taskItem) {
             e.preventDefault();
             currentTask = taskItem;
-            
+
             // Update context menu items
             updateContextMenu(taskItem);
-            
+
             // Position the menu
             contextMenu.style.left = `${e.pageX}px`;
             contextMenu.style.top = `${e.pageY}px`;
@@ -353,15 +645,15 @@ document.addEventListener('DOMContentLoaded', function() {
     // Handle context menu actions
     document.querySelectorAll('.context-menu-item').forEach(item => {
         item.addEventListener('click', function(e) {
-            const action = this.textContent.trim();
-            
-            if (action === 'Add Label') {
+            const action = this.dataset.action;
+
+            if (action === 'add-label') {
                 e.stopPropagation(); // Prevent event from bubbling up
-                
+
                 // Create and show label menu
                 const labelMenu = document.createElement('div');
                 labelMenu.className = 'label-menu';
-                
+
                 const labels = [
                     { name: 'Important', color: '#ff4444', icon: '⚡' },
                     { name: 'Personal', color: '#4CAF50', icon: '👤' },
@@ -375,14 +667,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     const labelItem = document.createElement('div');
                     labelItem.className = 'label-item';
                     labelItem.textContent = `${label.icon} ${label.name}`;
-                    
+
                     labelItem.addEventListener('click', () => {
                         toggleLabel(currentTask, label);
                         labelMenu.remove();
                         contextMenu.classList.remove('active');
                         updateContextMenu(currentTask); // Update menu after adding label
                     });
-                    
+
                     labelMenu.appendChild(labelItem);
                 });
 
@@ -401,13 +693,13 @@ document.addEventListener('DOMContentLoaded', function() {
                         document.removeEventListener('click', closeLabels);
                     }
                 };
-                
+
                 setTimeout(() => {
                     document.addEventListener('click', closeLabels);
                 }, 0);
-                
+
                 return;
-            } else if (action === 'Remove Labels') {
+            } else if (action === 'remove-labels') {
                 if (currentTask) {
                     const labels = currentTask.querySelectorAll('.task-label');
                     labels.forEach(label => label.remove());
@@ -420,24 +712,24 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Handle other menu items
             switch(action) {
-                case 'Edit Task':
+                case 'edit':
                     if (currentTask) {
                         const taskTextSpan = currentTask.querySelector('.task-text');
                         const currentText = taskTextSpan.textContent;
-                        
+
                         // Disable controls during editing
                         const controls = currentTask.querySelectorAll('.checkmark, .delete-button, .undo-button');
                         controls.forEach(control => {
                             control.style.pointerEvents = 'none';
                             control.style.opacity = '0.5';
                         });
-                        
+
                         // Create input field
                         const input = document.createElement('input');
                         input.type = 'text';
                         input.value = currentText;
                         input.className = 'edit-task-input';
-                        
+
                         // Replace text with input
                         taskTextSpan.textContent = '';
                         taskTextSpan.appendChild(input);
@@ -474,28 +766,28 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                     break;
 
-                case 'Set Due Date':
+                case 'due-date':
                     if (currentTask) {
                         const dateInput = document.createElement('input');
                         dateInput.type = 'date';
                         dateInput.className = 'date-picker';
-                        
+
                         // Get tomorrow's date as default
                         const tomorrow = new Date();
                         tomorrow.setDate(tomorrow.getDate() + 1);
-                        dateInput.value = tomorrow.toISOString().split('T')[0];
-                        
+                        dateInput.value = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
+
                         // Show date picker and handle selection
                         dateInput.style.position = 'absolute';
                         dateInput.style.left = contextMenu.style.left;
                         dateInput.style.top = contextMenu.style.top;
                         document.body.appendChild(dateInput);
-                        
+
                         // Automatically open the calendar
                         setTimeout(() => {
                             dateInput.showPicker();
                         }, 0);
-                        
+
                         dateInput.addEventListener('change', function() {
                             setDueDate(currentTask, this.value);
                             dateInput.remove();
@@ -507,12 +799,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                     break;
 
-                case 'Delete Task':
-                    deleteTask(currentTask);
-                    contextMenu.classList.remove('active');
+                case 'delete':
+                    if (currentTask) {
+                        deleteTask(currentTask);
+                    }
                     break;
             }
-            
+
             contextMenu.classList.remove('active');
         });
     });
@@ -520,7 +813,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Dark mode initialization
     const darkModeToggle = document.getElementById('darkModeToggle');
     const root = document.documentElement;
-    
+
     // Load saved theme preference
     const savedTheme = localStorage.getItem('theme') || 'light';
     root.setAttribute('data-theme', savedTheme);
@@ -535,19 +828,23 @@ document.addEventListener('DOMContentLoaded', function() {
         updateThemeIcon(!isDark);
     });
 
-    // Hide the stopwatch by default
-    stopwatch.classList.add('hidden');
-
     // Toggle stopwatch display
-    stopwatchToggle.addEventListener('click', function() {
+    document.getElementById('stopwatchToggle').addEventListener('click', function() {
         stopwatch.classList.toggle('hidden');
+    });
+
+    // Search filter
+    const searchInput = document.getElementById('searchInput');
+    searchInput.addEventListener('input', function() {
+        applySearchFilter(this.value.trim().toLowerCase());
     });
 });
 
 // Helper function to update theme icon
 function updateThemeIcon(isDark) {
-    const icon = document.querySelector('#darkModeToggle i');
-    icon.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
+    const icon = document.querySelector('#darkModeToggle');
+    icon.textContent = isDark ? '☀️' : '🌙';
+    icon.setAttribute('aria-label', isDark ? 'Switch to light mode' : 'Switch to dark mode');
 }
 
 // Function to save edited task
@@ -577,115 +874,26 @@ function setDueDate(taskElement, dateString) {
 // Function to toggle a label on a task
 function toggleLabel(taskElement, label) {
     const existingLabel = taskElement.querySelector(`.task-label[data-label="${label.name}"]`);
-    
+
     if (existingLabel) {
         existingLabel.remove();
     } else {
-        const labelElement = document.createElement('span');
-        labelElement.className = 'task-label';
-        labelElement.setAttribute('data-label', label.name);
-        labelElement.textContent = `${label.icon} ${label.name}`;
-        labelElement.style.backgroundColor = label.color;
-        
+        const labelElement = buildLabelSpan(label);
+
         // Insert label after task text
         const taskText = taskElement.querySelector('.task-text');
         taskText.insertAdjacentElement('afterend', labelElement);
     }
-    
+
     saveTasks();
     organizeTasks(); // Call organizeTasks immediately after updating the label
 }
 
-// Function to organize tasks
-function organizeTasks() {
-    const taskList = document.getElementById('taskList');
-    
-    // Store all tasks before clearing
-    const tasks = Array.from(taskList.getElementsByTagName('li'));
-    
-    // Clear the task list
-    taskList.innerHTML = '';
-    
-    // Separate labeled and unlabeled tasks
-    const unlabeledTasks = [];
-    const taskGroups = {
-        'Important': [],
-        'Work': [],
-        'Personal': [],
-        'Shopping': [],
-        'Health': [],
-        'Study': []
-    };
+// ---------- stopwatch ----------
 
-    // Sort tasks into groups
-    tasks.forEach(task => {
-        if (!task.classList.contains('completed')) {
-            const labels = Array.from(task.querySelectorAll('.task-label'));
-            if (labels.length === 0) {
-                unlabeledTasks.push(task);
-            } else {
-                const primaryLabel = labels[0].getAttribute('data-label');
-                if (taskGroups.hasOwnProperty(primaryLabel)) {
-                    taskGroups[primaryLabel].push(task);
-                } else {
-                    unlabeledTasks.push(task);
-                }
-            }
-        }
-    });
-
-    // Add unlabeled tasks first
-    unlabeledTasks.forEach(task => {
-        taskList.appendChild(task);
-    });
-
-    // Add separator if there are both unlabeled and labeled tasks
-    const hasLabeledTasks = Object.values(taskGroups).some(group => group.length > 0);
-    if (unlabeledTasks.length > 0 && hasLabeledTasks) {
-        const separator = document.createElement('div');
-        separator.className = 'task-separator';
-        taskList.appendChild(separator);
-    }
-
-    // Add labeled tasks in groups
-    Object.entries(taskGroups).forEach(([label, groupTasks]) => {
-        if (groupTasks.length > 0) {
-            const groupHeader = document.createElement('div');
-            groupHeader.className = 'task-group-header';
-            const groupIcon = document.createElement('span');
-            groupIcon.className = 'group-icon';
-            groupIcon.textContent = getLabelIcon(label);
-            groupHeader.appendChild(groupIcon);
-            groupHeader.appendChild(document.createTextNode(label));
-            const taskCount = document.createElement('span');
-            taskCount.className = 'task-count';
-            taskCount.textContent = `(${groupTasks.length})`;
-            groupHeader.appendChild(taskCount);
-            taskList.appendChild(groupHeader);
-
-            groupTasks.forEach(task => {
-                taskList.appendChild(task);
-            });
-        }
-    });
-}
-// Helper function to get label icon
-function getLabelIcon(label) {
-    const icons = {
-        'Important': '⚡',
-        'Work': '💼',
-        'Personal': '👤',
-        'Shopping': '🛒',
-        'Health': '❤️',
-        'Study': '📚',
-        'Unlabeled': '📝'
-    };
-    return icons[label] || '📝';
-}
-
-// Stopwatch. State lives in localStorage, so the count survives a
-// reload, and a running timer keeps counting the time the page was
-// closed (focused-work sessions outlive accidental refreshes).
+// State lives in localStorage, so the count survives a reload, and a
+// running timer keeps counting the time the page was closed
+// (focused-work sessions outlive accidental refreshes)
 let stopwatchState = loadStopwatchState();
 let stopwatchTimer = null;
 
@@ -765,4 +973,3 @@ syncStopwatchButtons();
 if (stopwatchState.runningSince) {
     startStopwatchTicker();
 }
-
