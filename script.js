@@ -139,7 +139,7 @@ function loadTasks() {
                 const labelElement = document.createElement('span');
                 labelElement.className = 'task-label';
                 labelElement.setAttribute('data-label', label.name);
-                labelElement.innerHTML = `${label.icon} ${label.name}`;
+                labelElement.textContent = `${label.icon} ${label.name}`;
                 labelElement.style.backgroundColor = label.color;
                 li.appendChild(labelElement);
             });
@@ -317,7 +317,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 labels.forEach(label => {
                     const labelItem = document.createElement('div');
                     labelItem.className = 'label-item';
-                    labelItem.innerHTML = `${label.icon} ${label.name}`;
+                    labelItem.textContent = `${label.icon} ${label.name}`;
                     
                     labelItem.addEventListener('click', () => {
                         toggleLabel(currentTask, label);
@@ -534,7 +534,7 @@ function toggleLabel(taskElement, label) {
         const labelElement = document.createElement('span');
         labelElement.className = 'task-label';
         labelElement.setAttribute('data-label', label.name);
-        labelElement.innerHTML = `${label.icon} ${label.name}`;
+        labelElement.textContent = `${label.icon} ${label.name}`;
         labelElement.style.backgroundColor = label.color;
         
         // Insert label after task text
@@ -602,11 +602,15 @@ function organizeTasks() {
         if (groupTasks.length > 0) {
             const groupHeader = document.createElement('div');
             groupHeader.className = 'task-group-header';
-            groupHeader.innerHTML = `
-                <span class="group-icon">${getLabelIcon(label)}</span>
-                ${label}
-                <span class="task-count">(${groupTasks.length})</span>
-            `;
+            const groupIcon = document.createElement('span');
+            groupIcon.className = 'group-icon';
+            groupIcon.textContent = getLabelIcon(label);
+            groupHeader.appendChild(groupIcon);
+            groupHeader.appendChild(document.createTextNode(label));
+            const taskCount = document.createElement('span');
+            taskCount.className = 'task-count';
+            taskCount.textContent = `(${groupTasks.length})`;
+            groupHeader.appendChild(taskCount);
             taskList.appendChild(groupHeader);
 
             groupTasks.forEach(task => {
