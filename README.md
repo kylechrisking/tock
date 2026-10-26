@@ -1,34 +1,65 @@
-<h1>Tock: Conquer Your To-Do List with Ease</h1>
+# Tock
 
-Tock is a user-friendly web application designed to help you stay organized and productive. It empowers you to manage your tasks effectively with features that cater to your workflow.
+A fast, private to-do list that runs entirely in your browser. No account,
+no server, no build step — open `index.html` and start adding tasks. Your
+tasks live in your browser's own localStorage and never leave your device.
 
-Key Features:
+**Try it:** https://rootlabs.us/apps/tock/ · Source: https://github.com/kylechrisking/tock
 
-Effortless Task Management: Create and manage to-do lists with ease. Add tasks, prioritize them with customizable flags (e.g., Important, Work, Personal, Health), and mark them as completed for a sense of accomplishment.
+## Features
 
-Organization at Your Fingertips: Organize tasks to your liking, ensuring your workflow aligns perfectly with Tock's functionality.
+- **Tasks** — add with the button or the Enter key, edit or set a due date
+  from the right-click menu, complete, un-complete, delete.
+- **Undo** — deleting a task shows a toast with an Undo button for six
+  seconds. Nothing disappears by accident.
+- **Labels & groups** — flag tasks Important, Work, Personal, Shopping,
+  Health or Study; active tasks group under their label automatically.
+- **Due dates** — shown in plain language ("Today", "Tomorrow", "Oct 31"),
+  overdue tasks turn red, and a sort toggle orders everything by due date.
+- **Search** — filter both lists as you type; press `/` anywhere to jump
+  to the search box.
+- **Progress & streak** — a running count of open tasks, completions today,
+  and a 🔥 day streak to keep the chain alive.
+- **Stopwatch** — for focused work. It keeps counting across reloads and
+  even while the tab was closed, and its buttons actually appear when you
+  need them.
+- **Dark mode** — remembered between visits.
+- **Backups** — export everything to a JSON file and import it on any
+  device or browser. Because "it's only localStorage" should never mean
+  "it's only on this machine forever".
 
-Focus with Precision: Leverage the integrated stopwatch feature to track time spent on specific tasks, allowing for improved focus and streamlined project management.
+## Keyboard
 
-Embrace the Night: Enhance your late-night productivity with the sleek and eye-friendly dark mode.
+| Key | Action |
+| --- | ------ |
+| `Enter` | Add the task you just typed |
+| `/` | Focus the search box |
+| `Esc` | Cancel an edit |
 
+## Privacy
 
-Benefits:
+There is no backend. Tasks, labels, dates, stats and the stopwatch state
+are stored in your browser's localStorage and sent nowhere. The page makes
+zero network requests — no fonts, no trackers, nothing.
 
-Improved Productivity: Tock helps you stay organized, prioritize tasks, and focus on what matters most, ultimately boosting your productivity.
+## Running it
 
-Reduced Stress: By clearing the mental clutter of unorganized tasks, Tock can help you feel calmer and more in control.
+No dependencies and no build step:
 
-Customizable Workflow: Adapt the application to fit your unique work style with the flexible organization and categorization options.
+```
+git clone https://github.com/kylechrisking/tock
+open index.html
+```
 
+Any static file server works too (`py -m http.server`, `npx serve`, ...).
 
-Start adding your tasks and experience the power of organization!
+## Self-hosting / embedding
 
-Visit the developers website: https://rootlabs.us/
+`index.html`, `script.js` and `styles.css` are the whole app. Copy the
+three files anywhere; see the note in the site's `apps/tock/SOURCE.md`
+for how rootlabs.us publishes it.
 
-Create a free account (not yet working!)
+## Looking for more?
 
-
-Looking for More?
-
-Check out my github for more work!
+Root Labs builds and gives away software like [MyRGB](https://github.com/kylechrisking/MyRGB)
+and [Sett](https://github.com/kylechrisking/burrow). See https://rootlabs.us/
