@@ -20,6 +20,7 @@ document.getElementById('addTaskButton').addEventListener('click', function() {
 // Update the addTask function
 function addTask(taskText) {
     const li = document.createElement('li');
+    li.dataset.taskId = createTaskId();
     li.classList.add('task-enter');
     
     // Create span for task text
@@ -33,7 +34,7 @@ function addTask(taskText) {
     checkmark.className = 'checkmark';
     checkmark.onclick = function() {
         li.classList.toggle('completed');
-        updateLocalStorage();
+        saveTasks();
         moveTask(li);
     };
 
@@ -43,7 +44,7 @@ function addTask(taskText) {
     undoButton.className = 'undo-button';
     undoButton.onclick = function() {
         li.classList.remove('completed');
-        updateLocalStorage();
+        saveTasks();
         moveTask(li);
     };
 
@@ -52,7 +53,7 @@ function addTask(taskText) {
     deleteButton.textContent = 'X';
     deleteButton.className = 'delete-button';
     deleteButton.onclick = function() {
-        deleteTask(taskText, li);
+        deleteTask(li);
     };
 
     // Create a container for the buttons
@@ -74,21 +75,18 @@ function addTask(taskText) {
         li.classList.remove('task-enter');
     }, 300);
     
-    saveTaskToLocalStorage(taskText);
-}
-
-// Function to save task to local storage
-function saveTaskToLocalStorage(taskText) {
-    let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
-    tasks.push({ text: taskText, completed: false }); // Store completion status
-    localStorage.setItem('tasks', JSON.stringify(tasks));
+    saveTasks();
 }
 
 // Function to load tasks from local storage
 function loadTasks() {
-    let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
-    tasks.forEach(task => {
+    const storedTasks = JSON.parse(localStorage.getItem('tasks')) || [];
+    const tasks = Array.isArray(storedTasks) ? storedTasks : [];
+    const needsIdMigration = tasks.some(task => !task || !task.id);
+    tasks.forEach(stored => {
+        const task = normalizeTask(stored);
         const li = document.createElement('li');
+        li.dataset.taskId = task.id;
         
         // Create span for task text
         const textSpan = document.createElement('span');
@@ -101,7 +99,7 @@ function loadTasks() {
         checkmark.className = 'checkmark';
         checkmark.onclick = function() {
             li.classList.toggle('completed');
-            updateLocalStorage();
+            saveTasks();
             moveTask(li);
         };
 
@@ -111,7 +109,7 @@ function loadTasks() {
         undoButton.className = 'undo-button';
         undoButton.onclick = function() {
             li.classList.remove('completed');
-            updateLocalStorage();
+            saveTasks();
             moveTask(li);
         };
 
@@ -120,7 +118,7 @@ function loadTasks() {
         deleteButton.textContent = 'X';
         deleteButton.className = 'delete-button';
         deleteButton.onclick = function() {
-            deleteTask(task.text, li);
+            deleteTask(li);
         };
 
         // Create a container for the buttons
@@ -132,7 +130,7 @@ function loadTasks() {
 
         li.appendChild(textSpan);
 
-        // Labels were being saved (updateLocalStorage already records
+        // Labels were being saved (saveTasks already records
         // them) but never redrawn here, so they silently vanished on
         // every reload -- the same class of bug as the missing tasks,
         // just smaller.
@@ -156,6 +154,10 @@ function loadTasks() {
             document.getElementById('taskList').appendChild(li);
         }
     });
+    // Persist ids for tasks stored before ids existed
+    if (needsIdMigration) {
+        saveTasks();
+    }
     organizeTasks(); // Organize tasks after loading
 }
 
@@ -181,21 +183,18 @@ function moveTask(taskElement) {
 }
 
 // Function to delete a task
-function deleteTask(taskText, taskElement) {
+function deleteTask(taskElement) {
     taskElement.classList.add('task-exit');
     
     setTimeout(() => {
         taskElement.remove();
-        // Remove from local storage
-        let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
-        tasks = tasks.filter(task => task.text !== taskText);
-        localStorage.setItem('tasks', JSON.stringify(tasks));
+        saveTasks();
         organizeTasks();
     }, 300);
 }
 
-// Function to update local storage after toggling completion
-function updateLocalStorage() {
+// The single writer for persisted tasks: rebuild the list from the DOM and save it
+function saveTasks() {
     const tasks = [];
     const taskItems = document.querySelectorAll('#taskList li, #completedTasks li');
     taskItems.forEach(item => {
@@ -205,17 +204,37 @@ function updateLocalStorage() {
         const labels = Array.from(item.querySelectorAll('.task-label')).map(label => ({
             name: label.getAttribute('data-label'),
             color: label.style.backgroundColor,
-            icon: label.innerHTML.split(' ')[0]
+            icon: getLabelIcon(label.getAttribute('data-label'))
         }));
-        
-        tasks.push({ 
-            text: taskText, 
+
+        tasks.push({
+            id: item.dataset.taskId || createTaskId(),
+            text: taskText,
             completed: completed,
             dueDate: dueDate,
             labels: labels
         });
     });
     localStorage.setItem('tasks', JSON.stringify(tasks));
+}
+
+// Give every task a stable identity so identical texts stay separate tasks
+function createTaskId() {
+    if (window.crypto && crypto.randomUUID) {
+        return crypto.randomUUID();
+    }
+    return 'task-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+}
+
+// Fill in fields missing from tasks stored by older versions
+function normalizeTask(stored) {
+    return {
+        id: (stored && stored.id) || createTaskId(),
+        text: typeof (stored && stored.text) === 'string' ? stored.text : '',
+        completed: Boolean(stored && stored.completed),
+        dueDate: (stored && stored.dueDate) || null,
+        labels: Array.isArray(stored && stored.labels) ? stored.labels : []
+    };
 }
 
 // Context Menu Implementation
@@ -239,7 +258,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (currentTask) {
                     const labels = currentTask.querySelectorAll('.task-label');
                     labels.forEach(label => label.remove());
-                    updateLocalStorage();
+                    saveTasks();
                     organizeTasks(); // Reorganize tasks after removing labels
                 }
             });
@@ -335,7 +354,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (currentTask) {
                     const labels = currentTask.querySelectorAll('.task-label');
                     labels.forEach(label => label.remove());
-                    updateLocalStorage();
+                    saveTasks();
                     organizeTasks();
                 }
                 contextMenu.classList.remove('active');
@@ -432,7 +451,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     break;
 
                 case 'Delete Task':
-                    deleteTask(currentTask.querySelector('.task-text').textContent, currentTask);
+                    deleteTask(currentTask);
                     contextMenu.classList.remove('active');
                     break;
             }
@@ -479,7 +498,7 @@ function saveEdit(input, taskTextSpan, originalText) {
     const newText = input.value.trim();
     if (newText && newText !== originalText) {
         taskTextSpan.textContent = newText;
-        updateLocalStorage();
+        saveTasks();
     } else {
         taskTextSpan.textContent = originalText;
     }
@@ -502,7 +521,7 @@ function setDueDate(taskElement, dateString) {
     });
     
     dueDateSpan.textContent = `Due: ${formattedDate}`;
-    updateLocalStorage();
+    saveTasks();
 }
 
 // Function to toggle a label on a task
@@ -523,7 +542,7 @@ function toggleLabel(taskElement, label) {
         taskText.insertAdjacentElement('afterend', labelElement);
     }
     
-    updateLocalStorage();
+    saveTasks();
     organizeTasks(); // Call organizeTasks immediately after updating the label
 }
 
